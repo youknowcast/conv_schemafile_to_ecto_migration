@@ -57,7 +57,8 @@ defmodule ConvSchemafileToEctoMigration do
       "#{_base_indent()}  add :#{name}, :#{type}"
     end)
 
-    timestamps = [:created_at, :updated_at] |> Enum.map(fn name ->
+    # Ecto default timestamps create `inserted_at`
+    timestamps = [:inserted_at, :updated_at] |> Enum.map(fn name ->
       "#{_base_indent()}  add :#{name}, :utc_datetime"
     end)
 
