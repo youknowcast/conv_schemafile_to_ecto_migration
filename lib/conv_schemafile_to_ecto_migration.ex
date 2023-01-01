@@ -4,20 +4,16 @@ defmodule ConvSchemafileToEctoMigration do
   """
 
   @doc """
-  Hello world.
+  Generate Ecto migration file to create whole tables defined in Schemafile.
 
   ## Examples
 
-      iex> ConvSchemafileToEctoMigration.hello()
-      :world
+      iex> ConvSchemafileToEctoMigration.gen_migration()
+      :ok
 
   """
-  def hello do
-    :world
-  end
-
   def gen_migration do
-    text = File.read! "Schemafile2"
+    text = File.read! "Schemafile"
 
     output = text
     |> String.split("\n")
@@ -32,8 +28,8 @@ defmodule ConvSchemafileToEctoMigration do
 
   defp _migration_format_datetime(d), do: "#{d.year}#{_zero_padding(d.month)}#{_zero_padding(d.day)}#{_zero_padding(d.hour)}#{_zero_padding(d.minute)}#{d.second}"
   defp _zero_padding(i), do: i |> Integer.to_string |> String.pad_leading(2, "0")
-  defp _base_indent, do: "    "
 
+  defp _base_indent, do: "    "
   defp _ecto_template(definition) do
     """
     defmodule MyApi.Repo.Migrations.CreateTables do
@@ -46,6 +42,7 @@ defmodule ConvSchemafileToEctoMigration do
     """
   end
 
+  # ref.: https://devhints.io/phoenix-migrations
   defp _transform_ecto_create_table(map) do
     {:ok, header} = Map.fetch(map, :table_name)
     create_table = "#{_base_indent}create table(:#{header["table_name"]}) do"
