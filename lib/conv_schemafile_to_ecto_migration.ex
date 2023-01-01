@@ -21,13 +21,20 @@ defmodule ConvSchemafileToEctoMigration do
 
     text
     |> String.split("\n")
-    |> Enum.reduce([], fn line, context ->
-      _read_line(line, context)
+    |> Enum.reduce([], fn line, context -> _read_line(line, context) end)
+    |> Enum.map(fn table -> _transform_ecto_create_table(table) end)
+  end
+
+  defp _transform_ecto_create_table(map) do
+    {:ok, header} = Map.fetch(map, :table_name)
+    columns = Enum.filter(map, fn x -> 
+      {k, v} = x
+      v[:type] && v[:type] != "index"
     end)
   end
 
-  def _read_line(:eof, context), do: context
-  def _read_line(line, context) do
+  defp _read_line(:eof, context), do: context
+  defp _read_line(line, context) do
     cond do
       table_name = Regex.named_captures(~r/create_table +(\'|\")(?<table_name>\w+)(\'|\").*/, line) 
                    -> context ++ [%{table_name: table_name}]
@@ -41,13 +48,13 @@ defmodule ConvSchemafileToEctoMigration do
 
   defp _conv_index(matched, context) do
     {c, last} = _split_context(context)
-    last = Map.put(last, matched["index_name"], %{ type: "index", columns: matched["index_columns"] })
+    last = Map.put(last, String.to_atom(matched["index_name"]), %{ type: "index", columns: matched["index_columns"] })
     c ++ [last]
   end
 
   defp _conv_column(matched, context) do
     {c, last} = _split_context(context)
-    last = Map.put(last, matched["column_name"], %{ type: matched["type"], options: matched["options"] })
+    last = Map.put(last, String.to_atom(matched["column_name"]), %{ type: matched["type"], options: matched["options"] })
     c ++ [last]
   end
 
