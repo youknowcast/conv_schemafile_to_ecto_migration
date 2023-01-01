@@ -17,7 +17,7 @@ defmodule ConvSchemafileToEctoMigration do
   end
 
   def gen_migration do
-    text = File.read! "Schemafile"
+    text = File.read! "Schemafile2"
 
     text
     |> String.split("\n")
@@ -29,27 +29,32 @@ defmodule ConvSchemafileToEctoMigration do
   def _read_line(:eof, context), do: context
   def _read_line(line, context) do
     cond do
-      table_name = Regex.named_captures(~r/create_table +'(?<table_name>.*)'.*/, line) -> context ++ [%{table_name: table_name}]
-      matched = Regex.named_captures(~r/ *t\.index +(?<index_columns>.*), +name: +(\"|\')(?<index_name>.*)(\"|\')/, line)
+      table_name = Regex.named_captures(~r/create_table +(\'|\")(?<table_name>\w+)(\'|\").*/, line) 
+                   -> context ++ [%{table_name: table_name}]
+      matched = Regex.named_captures(~r/ *t\.index +(?<index_columns>.*), +name: +(\'|\")(?<index_name>.*)(\'|\")/, line)
                 -> _conv_index(matched, context)
-      matched = Regex.named_captures(~r/ *t\.(?<type>.*) +\'(?<column_name>.*)\',*(?<options>.*)/, line)
+      matched = Regex.named_captures(~r/ *t\.(?<type>.*) +(\'|\")(?<column_name>.*)(\'|\"),*(?<options>.*)/, line)
                 -> _conv_column(matched, context)
      true -> context
     end
   end
 
   defp _conv_index(matched, context) do
-    [c | last] = context
-    last = Map.put(last, matched[:index_name], matched[:index_raw])
-    [c | last]
+    {c, last} = _split_context(context)
+    last = Map.put(last, matched["index_name"], %{ type: "index", columns: matched["index_columns"] })
+    c ++ [last]
   end
 
   defp _conv_column(matched, context) do
-    [c, last] = cond do
-      length(context) == 1 -> [[], List.first(context)]
-      true -> [List.delete_at(context, -1), List.last(context)]
-    end
+    {c, last} = _split_context(context)
     last = Map.put(last, matched["column_name"], %{ type: matched["type"], options: matched["options"] })
     c ++ [last]
+  end
+
+  defp _split_context(context) do
+    cond do
+      length(context) == 1 -> {[], List.first(context)}
+      true -> {List.delete_at(context, -1), List.last(context)}
+    end
   end
 end
