@@ -45,7 +45,7 @@ defmodule ConvSchemafileToEctoMigration do
   # ref.: https://devhints.io/phoenix-migrations
   defp _transform_ecto_create_table(map) do
     {:ok, header} = Map.fetch(map, :table_name)
-    create_table = "#{_base_indent}create table(:#{header["table_name"]}) do"
+    create_table = "#{_base_indent()}create table(:#{header["table_name"]}) do"
 
     columns = Enum.filter(map, fn x -> 
       {k, v} = x
@@ -53,11 +53,11 @@ defmodule ConvSchemafileToEctoMigration do
     end)
     |> Enum.sort
     |> Enum.map(fn x ->
-      {name, %{ type: type, options: options }} = x
-      "#{_base_indent}  add :#{name}, :#{type}"
+      {name, %{ type: type, options: _options }} = x
+      "#{_base_indent()}  add :#{name}, :#{type}"
     end)
 
-    period = "#{_base_indent}end"
+    period = "#{_base_indent()}end"
 
     [create_table] ++ columns ++ [period]
   end
