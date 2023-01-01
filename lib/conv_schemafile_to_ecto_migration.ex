@@ -57,9 +57,13 @@ defmodule ConvSchemafileToEctoMigration do
       "#{_base_indent()}  add :#{name}, :#{type}"
     end)
 
+    timestamps = [:created_at, :updated_at] |> Enum.map(fn name ->
+      "#{_base_indent()}  add :#{name}, :utc_datetime"
+    end)
+
     period = "#{_base_indent()}end"
 
-    [create_table] ++ columns ++ [period]
+    [create_table] ++ columns ++ timestamps ++ [period]
   end
 
   defp _read_line(:eof, context), do: context
