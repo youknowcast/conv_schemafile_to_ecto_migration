@@ -19,18 +19,50 @@ defmodule ConvSchemafileToEctoMigration do
   def gen_migration do
     text = File.read! "Schemafile2"
 
-    text
+    output = text
     |> String.split("\n")
     |> Enum.reduce([], fn line, context -> _read_line(line, context) end)
     |> Enum.map(fn table -> _transform_ecto_create_table(table) end)
+    |> Enum.map(&(Enum.join(&1, "\n")))
+    |> Enum.join("\n")
+
+    datetime = DateTime.now!("Etc/UTC") |> _migration_format_datetime
+    File.write!("#{datetime}_create_tables.exs", _ecto_template(output))
+  end
+
+  defp _migration_format_datetime(d), do: "#{d.year}#{_zero_padding(d.month)}#{_zero_padding(d.day)}#{_zero_padding(d.hour)}#{_zero_padding(d.minute)}#{d.second}"
+  defp _zero_padding(i), do: i |> Integer.to_string |> String.pad_leading(2, "0")
+  defp _base_indent, do: "    "
+
+  defp _ecto_template(definition) do
+    """
+    defmodule MyApi.Repo.Migrations.CreateTables do
+      use Ecto.Migration
+
+      def change do
+    #{definition}
+      end
+    end
+    """
   end
 
   defp _transform_ecto_create_table(map) do
     {:ok, header} = Map.fetch(map, :table_name)
+    create_table = "#{_base_indent}create table(:#{header["table_name"]}) do"
+
     columns = Enum.filter(map, fn x -> 
       {k, v} = x
-      v[:type] && v[:type] != "index"
+      v[:type] && v[:type] != "index" && k not in [:created_at, :updated_at]
     end)
+    |> Enum.sort
+    |> Enum.map(fn x ->
+      {name, %{ type: type, options: options }} = x
+      "#{_base_indent}  add :#{name}, :#{type}"
+    end)
+
+    period = "#{_base_indent}end"
+
+    [create_table] ++ columns ++ [period]
   end
 
   defp _read_line(:eof, context), do: context
