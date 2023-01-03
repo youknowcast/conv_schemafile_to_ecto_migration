@@ -19,8 +19,7 @@ defmodule ConvSchemafileToEctoMigration do
     |> String.split("\n")
     |> Enum.reduce([], fn line, context -> _read_line(line, context) end)
     |> Enum.map(fn table -> _transform_ecto_create_table(table) end)
-    |> Enum.map(&(Enum.join(&1, "\n")))
-    |> Enum.join("\n")
+    |> Enum.map_join("\n", &(Enum.join(&1, "\n")))
 
     datetime = DateTime.now!("Etc/UTC") |> _migration_format_datetime
     File.write!("#{datetime}_create_tables.exs", _ecto_template(output))
@@ -47,13 +46,13 @@ defmodule ConvSchemafileToEctoMigration do
     {:ok, header} = Map.fetch(map, :table_name)
     create_table = "#{_base_indent()}create table(:#{header["table_name"]}) do"
 
-    columns = Enum.filter(map, fn x -> 
+    columns = Enum.filter(map, fn x ->
       {k, v} = x
       v[:type] && v[:type] != "index" && k not in [:created_at, :updated_at]
     end)
     |> Enum.sort
     |> Enum.map(fn x ->
-      {name, %{ type: type, options: _options }} = x
+      {name, %{type: type, options: _options}} = x
       "#{_base_indent()}  add :#{name}, :#{type}"
     end)
 
@@ -70,7 +69,7 @@ defmodule ConvSchemafileToEctoMigration do
   defp _read_line(:eof, context), do: context
   defp _read_line(line, context) do
     cond do
-      table_name = Regex.named_captures(~r/create_table +(\'|\")(?<table_name>\w+)(\'|\").*/, line) 
+      table_name = Regex.named_captures(~r/create_table +(\'|\")(?<table_name>\w+)(\'|\").*/, line)
                    -> context ++ [%{table_name: table_name}]
       matched = Regex.named_captures(~r/ *t\.index +(?<index_columns>.*), +name: +(\'|\")(?<index_name>.*)(\'|\")/, line)
                 -> _conv_index(matched, context)
@@ -82,20 +81,21 @@ defmodule ConvSchemafileToEctoMigration do
 
   defp _conv_index(matched, context) do
     {c, last} = _split_context(context)
-    last = Map.put(last, String.to_atom(matched["index_name"]), %{ type: "index", columns: matched["index_columns"] })
+    last = Map.put(last, String.to_atom(matched["index_name"]), %{type: "index", columns: matched["index_columns"]})
     c ++ [last]
   end
 
   defp _conv_column(matched, context) do
     {c, last} = _split_context(context)
-    last = Map.put(last, String.to_atom(matched["column_name"]), %{ type: matched["type"], options: matched["options"] })
+    last = Map.put(last, String.to_atom(matched["column_name"]), %{type: matched["type"], options: matched["options"]})
     c ++ [last]
   end
 
   defp _split_context(context) do
-    cond do
-      length(context) == 1 -> {[], List.first(context)}
-      true -> {List.delete_at(context, -1), List.last(context)}
+    if length(context) == 1 do
+      {[], List.first(context)}
+    else
+      {List.delete_at(context, -1), List.last(context)}
     end
   end
 end
