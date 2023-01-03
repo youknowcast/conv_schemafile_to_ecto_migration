@@ -3,6 +3,8 @@ defmodule ConvSchemafileToEctoMigration do
   Documentation for `ConvSchemafileToEctoMigration`.
   """
 
+  @target_migration_file "Schemafile"
+
   @doc """
   Generate Ecto migration file to create whole tables defined in Schemafile.
 
@@ -13,8 +15,7 @@ defmodule ConvSchemafileToEctoMigration do
 
   """
   def gen_migration do
-    text = File.read!("Schemafile")
-
+    text = File.read!(@target_migration_file)
     output =
       text
       |> String.split("\n")
