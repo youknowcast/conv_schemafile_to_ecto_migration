@@ -26,6 +26,6 @@ conv_schemafile_to_ecto_migration-*.tar
 /tmp/
 
 # for project
-Schemafile
+/Schemafile
 ## exclude exe
 conv_schema_file_to_ecto_migration
