@@ -6,6 +6,7 @@ defmodule ConvSchemafileToEctoMigration.MixProject do
       app: :conv_schemafile_to_ecto_migration,
       version: "0.1.0",
       elixir: "~> 1.14",
+      escript: [main_module: ConvSchemafileToEctoMigrationCli],
       start_permanent: Mix.env() == :prod,
       deps: deps()
     ]
