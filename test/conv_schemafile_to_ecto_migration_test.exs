@@ -12,8 +12,8 @@ defmodule ConvSchemafileToEctoMigrationTest do
       File.cd!(@test_dir)
 
       on_exit fn ->
-        File.rm_rf(@test_dir)
         File.cd!(current)
+        File.rm_rf(@test_dir)
       end
 
       {:ok, dummy: :dummy}
@@ -34,6 +34,7 @@ defmodule ConvSchemafileToEctoMigrationTest do
       assert String.contains?(content, "add :name, :string")
       assert String.contains?(content, "add :inserted_at, :utc_datetime")
       assert String.contains?(content, "add :updated_at, :utc_datetime")
+      assert String.contains?(content, "create index \"index_staffs_on_code\", [:code], unique: true")
     end
   end
 end

@@ -1,7 +1,9 @@
 create_table 'staffs', force: :cascade do |t|
+  t.bigint   'id', null: false
   t.string   'code'
   t.string   'name'
   t.datetime 'created_at'
   t.datetime 'updated_at'
+  t.index ["code"], name: 'index_staffs_on_code', unique: true
 end
 

@@ -72,7 +72,27 @@ defmodule ConvSchemafileToEctoMigration do
 
     period = "#{_base_indent()}end"
 
-    [create_table] ++ columns ++ timestamps ++ [period]
+    indexes =
+      Enum.filter(map, fn x ->
+        {_k, v} = x
+        v[:type] && v[:type] == "index"
+      end)
+      |> Enum.map(fn x ->
+        {name, %{type: _type, columns: columns, options: options}} = x
+        "#{_base_indent()}create index \"#{name}\", [#{columns |> Enum.map_join(",", fn x -> ":#{x}" end)}]" |> _create_index(options)
+
+     end)
+
+    [create_table] ++ columns ++ timestamps ++ [period] ++ indexes
+  end
+
+  defp _create_index(str, options) do
+    options |> Map.keys() |> Enum.reduce(str, fn x, acc ->
+      case x do
+        :unique -> "#{acc}, unique: true"
+        _ -> acc
+      end
+    end)
   end
 
   defp _read_line(:eof, context), do: context
@@ -85,7 +105,7 @@ defmodule ConvSchemafileToEctoMigration do
 
       matched =
           Regex.named_captures(
-            ~r/ *t\.index +(?<index_columns>.*), +name: +(\'|\")(?<index_name>.*)(\'|\")/,
+            ~r/ *t\.index +\[(?<index_columns>[\w\,\"\' ]+)\],?(?<index_options>.*)/,
             line
           ) ->
         _conv_index(matched, context)
@@ -104,11 +124,19 @@ defmodule ConvSchemafileToEctoMigration do
 
   defp _conv_index(matched, context) do
     {c, last} = _split_context(context)
+    columns = _index_columns(matched["index_columns"])
+    options = _index_options(matched["index_options"])
+    index_name = if Map.has_key?(options, :name) do
+      options.name |> String.to_atom
+    else
+      "index_#{last[:table_name]["table_name"]}_on_#{Enum.join(columns, "_")}" |> String.to_atom
+    end
 
     last =
-      Map.put(last, String.to_atom(matched["index_name"]), %{
+      Map.put(last, index_name, %{
         type: "index",
-        columns: matched["index_columns"]
+        columns: columns,
+        options: options,
       })
 
     c ++ [last]
@@ -119,7 +147,7 @@ defmodule ConvSchemafileToEctoMigration do
 
     last =
       Map.put(last, String.to_atom(matched["column_name"]), %{
-        type: matched["type"],
+        type: matched["type"] |> String.trim(),
         options: matched["options"]
       })
 
@@ -132,5 +160,26 @@ defmodule ConvSchemafileToEctoMigration do
     else
       {List.delete_at(context, -1), List.last(context)}
     end
+  end
+
+  defp _index_columns(columns_raw) do
+    columns_raw |> String.split(",") |> Enum.map(&(String.trim(&1))) |> Enum.map(&(String.replace(&1, ~r/('|")/, "")))
+  end
+
+  defp _index_options(options_raw) do
+    conv_opt = fn str ->
+      opt = str |> String.split(":") |> Enum.map(&(String.trim(&1))) |> Enum.map(&(String.replace(&1, ~r/('|")/, "")))
+      %{"#{Enum.at(opt, 0)}": Enum.at(opt, 1)}
+    end
+
+    fragments = options_raw |> String.split(",") |> Enum.map(&(String.trim(&1))) |> Enum.map(&(conv_opt.(&1)))
+
+    fragments |> Enum.reduce(%{}, fn x, acc ->
+      case x do
+        %{name: name} -> put_in(acc[:name], name)
+        %{unique: "true"} -> put_in(acc[:unique], true)
+        _ -> acc
+      end
+    end)
   end
 end
